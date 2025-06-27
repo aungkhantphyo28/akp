@@ -1,0 +1,483 @@
+Auth Tables
+User
+CREATE TABLE [User] (
+ID INT PRIMARY KEY IDENTITY,
+UserCode VARCHAR(50) UNIQUE,
+PersonNo VARCHAR(50),
+Password VARCHAR(100),
+RegisteredSince DATETIME DEFAULT GETDATE()
+);
+Role
+CREATE TABLE Role (
+ID INT PRIMARY KEY IDENTITY,
+RoleDescription VARCHAR(100),
+ProgramPermission VARCHAR(100),
+RegisteredSince DATETIME DEFAULT GETDATE()
+);
+UserRole
+CREATE TABLE UserRole (
+UserID INT,
+RoleID INT,
+RegisteredSince DATETIME DEFAULT GETDATE(),
+FOREIGN KEY (UserID) REFERENCES [User](ID),
+FOREIGN KEY (RoleID) REFERENCES Role(ID)
+);
+Program
+CREATE TABLE Program (
+ID INT PRIMARY KEY IDENTITY,
+PermitRoles VARCHAR(50),
+ProgramName VARCHAR(100),
+Route VARCHAR(200),
+Params VARCHAR(200),
+RegisteredSince DATETIME DEFAULT GETDATE()
+);
+
+Info Tables
+Patient
+CREATE TABLE Patient (
+ID INT PRIMARY KEY IDENTITY,
+PatientNo VARCHAR(50) UNIQUE,
+FullName VARCHAR(100),
+DOB DATE,
+Age INT,
+Sex CHAR(1),
+BloodGroup VARCHAR(10),
+Allergy VARCHAR(200),
+FatherName VARCHAR(100),
+SpouseName VARCHAR(100),
+StreetName VARCHAR(100),
+Block VARCHAR(50),
+Township VARCHAR(50),
+City VARCHAR(50),
+RegisteredSince DATETIME DEFAULT GETDATE()
+);
+Person
+CREATE TABLE Person (
+ID INT PRIMARY KEY IDENTITY,
+PersonNo VARCHAR(50) UNIQUE,
+PersonType CHAR(1), -- D, N, O, A
+FullName VARCHAR(100),
+Qualification VARCHAR(100),
+Specializing VARCHAR(100),
+StreetName VARCHAR(100),
+Block VARCHAR(50),
+Township VARCHAR(50),
+City VARCHAR(50),
+RegisteredSince DATETIME DEFAULT GETDATE()
+);
+3. Transactions Tables
+Income Bill
+CREATE TABLE IncomeBill (
+ID INT PRIMARY KEY IDENTITY,
+DateTime DATETIME DEFAULT GETDATE(),
+PatientNo VARCHAR(50),
+TotalAmount DECIMAL(18,2),
+
+OperatorNo VARCHAR(50),
+IsPosted BIT DEFAULT 0,
+IsVoided BIT DEFAULT 0,
+PostedDate DATETIME NULL
+);
+
+Income BillItem
+CREATE TABLE IncomeBillItem (
+ID INT PRIMARY KEY IDENTITY,
+IncomeBillID INT,
+CostCode VARCHAR(50),
+Amount DECIMAL(18,2),
+FOREIGN KEY (IncomeBillID) REFERENCES IncomeBill(ID)
+);
+ExpenseBill
+CREATE TABLE ExpenseBill (
+ID INT PRIMARY KEY IDENTITY,
+DateTime DATETIME DEFAULT GETDATE(),
+PatientNo VARCHAR(50),
+TotalAmount DECIMAL(18,2),
+OperatorNo VARCHAR(50),
+IsPosted BIT DEFAULT 0,
+IsVoided BIT DEFAULT 0,
+PostedDate DATETIME NULL
+);
+ExpenseBillItem
+CREATE TABLE ExpenseBillItem (
+ID INT PRIMARY KEY IDENTITY,
+ExpenseBillID INT,
+CostCode VARCHAR(50),
+Amount DECIMAL(18,2),
+FOREIGN KEY (ExpenseBillID) REFERENCES ExpenseBill(ID)
+);
+
+PostingTransaction
+CREATE TABLE PostingTransaction (
+PDATE DATE DEFAULT GETDATE(),
+AccountCode VARCHAR(50),
+Total DECIMAL(18,2),
+OperatorNo VARCHAR(50),
+CheckedPersonNo VARCHAR(50)
+);
+CostRate
+CREATE TABLE CostRate (
+ID INT PRIMARY KEY IDENTITY,
+CostCode VARCHAR(50),
+CostAmount DECIMAL(18,2),
+CostType VARCHAR(50),
+IorE CHAR(1), -- I for Income, E for Expense
+AccountCode VARCHAR(50),
+RegisteredSince DATETIME DEFAULT GETDATE()
+);
+PatientCheckInOut
+CREATE TABLE PatientCheckInOut (
+ID INT PRIMARY KEY IDENTITY,
+DateTime DATETIME DEFAULT GETDATE(),
+PatientNo VARCHAR(50),
+PatientVitalID INT,
+DoctorNo VARCHAR(50),
+CIN_TIME TIME,
+COUT_TIME TIME,
+isServed BIT,
+isBilled BIT
+);
+PatientVital
+CREATE TABLE PatientVital (
+ID INT PRIMARY KEY IDENTITY,
+BP VARCHAR(20),
+Oximeter VARCHAR(10),
+Weight DECIMAL(5,2),
+RespRate INT,
+Height DECIMAL(5,2),
+DateTime DATETIME DEFAULT GETDATE(),
+OperatorNo VARCHAR(50)
+);
+
+TicketHeader &amp; TicketFooter
+CREATE TABLE TicketHeader (
+ID INT PRIMARY KEY IDENTITY,
+ClinicName VARCHAR(100),
+HeaderLine1 VARCHAR(100),
+HeaderLine2 VARCHAR(100),
+HeaderLine3 VARCHAR(100),
+LabOPD VARCHAR(10)
+);
+CREATE TABLE TicketFooter (
+ClinicName VARCHAR(100),
+FooterLine1 VARCHAR(100),
+FooterLine2 VARCHAR(100),
+FooterLine3 VARCHAR(100),
+LabOPD VARCHAR(10)
+);
+PatientDocument &amp; ClinicDocument
+CREATE TABLE PatientDocument (
+ID INT PRIMARY KEY IDENTITY,
+DocumentContent VARBINARY(MAX)
+);
+CREATE TABLE ClinicDocument (
+ID INT PRIMARY KEY IDENTITY,
+DocumentContent VARBINARY(MAX)
+);
+
+PatientLabRecord
+CREATE TABLE PatientLabRecord (
+ID INT PRIMARY KEY IDENTITY,
+DateTime DATETIME DEFAULT GETDATE(),
+DoctorNo VARCHAR(50),
+IncomeBillID INT,
+isCollected BIT,
+PatientDocumentID INT,
+FOREIGN KEY (IncomeBillID) REFERENCES IncomeBill(ID),
+FOREIGN KEY (PatientDocumentID) REFERENCES PatientDocument(ID)
+);
+
+Functionalities
+Login Function
+CREATE TABLE UserSession (
+ID INT PRIMARY KEY IDENTITY(1,1),
+UserID INT FOREIGN KEY REFERENCES [User](ID),
+LoginTime DATETIME DEFAULT GETDATE(),
+LogoutTime DATETIME NULL,
+IsActive BIT DEFAULT 1
+);
+CREATE PROCEDURE UserLogin
+@UserCode VARCHAR(50),
+@Password VARCHAR(MAX) -- Password should be hashed in real applications
+AS
+BEGIN
+SET NOCOUNT ON;
+DECLARE @UserID INT;
+-- Verify user credentials
+SELECT @UserID = ID
+FROM [User]
+WHERE UserCode = @UserCode
+AND Password = @Password; -- Replace with a hashing function for security
+IF @UserID IS NOT NULL
+BEGIN
+-- Insert login session (assuming you have a session table)
+INSERT INTO UserSession (UserID, LoginTime, IsActive)
+VALUES (@UserID, GETDATE(), 1);
+SELECT &#39;Login Successful&#39; AS Message, @UserID AS UserID;
+END
+ELSE
+BEGIN
+-- Invalid login attempt
+SELECT &#39;Invalid Username or Password&#39; AS Message;
+END
+END;
+Logout Function
+CREATE PROCEDURE UserLogout
+@UserID INT
+AS
+BEGIN
+SET NOCOUNT ON;
+-- Update session status
+UPDATE UserSession
+
+SET IsActive = 0, LogoutTime = GETDATE()
+WHERE UserID = @UserID AND IsActive = 1;
+SELECT &#39;Logout Successful&#39; AS Message;
+END;
+
+CodeSetup for CostRates
+CREATE PROCEDURE CodeSetup_CostRate
+@Action VARCHAR(10), -- &#39;ADD&#39;, &#39;UPDATE&#39;, &#39;DELETE&#39;
+@CostCode VARCHAR(50),
+@CostAmount DECIMAL(18,2) = NULL,
+@CostType VARCHAR(50) = NULL,
+@IorE CHAR(1) = NULL, -- &#39;I&#39; for Income, &#39;E&#39; for Expense
+@AccountCode VARCHAR(50) = NULL
+AS
+BEGIN
+SET NOCOUNT ON;
+IF @Action = &#39;ADD&#39;
+BEGIN
+INSERT INTO CostRate (CostCode, CostAmount, CostType, IorE,
+AccountCode, RegisteredSince)
+VALUES (@CostCode, @CostAmount, @CostType, @IorE, @AccountCode,
+GETDATE());
+SELECT &#39;Cost Rate Added Successfully&#39; AS Message;
+END
+ELSE IF @Action = &#39;UPDATE&#39;
+BEGIN
+UPDATE CostRate
+SET CostAmount = @CostAmount, CostType = @CostType, IorE = @IorE,
+AccountCode = @AccountCode
+WHERE CostCode = @CostCode;
+SELECT &#39;Cost Rate Updated Successfully&#39; AS Message;
+END
+ELSE IF @Action = &#39;DELETE&#39;
+BEGIN
+DELETE FROM CostRate WHERE CostCode = @CostCode;
+SELECT &#39;Cost Rate Deleted Successfully&#39; AS Message;
+END
+ELSE
+BEGIN
+SELECT &#39;Invalid Action&#39; AS Message;
+END
+END;
+
+CodeSetup for Income
+CREATE PROCEDURE CodeSetup_Income
+@PatientNo VARCHAR(50),
+@TotalAmount DECIMAL(18,2),
+@OperatorNo INT
+AS
+BEGIN
+SET NOCOUNT ON;
+INSERT INTO IncomeBill (DateTime, PatientNo, TotalAmount, OperatorNo,
+IsPosted, IsVoided)
+VALUES (GETDATE(), @PatientNo, @TotalAmount, @OperatorNo, 0, 0);
+SELECT &#39;Income Recorded Successfully&#39; AS Message;
+END;
+CodeSetup for Expense
+CREATE PROCEDURE CodeSetup_Expense
+@PatientNo VARCHAR(50),
+@TotalAmount DECIMAL(18,2),
+@OperatorNo INT
+AS
+BEGIN
+SET NOCOUNT ON;
+INSERT INTO ExpenseBill (DateTime, PatientNo, TotalAmount, OperatorNo,
+IsPosted, IsVoided)
+VALUES (GETDATE(), @PatientNo, @TotalAmount, @OperatorNo, 0, 0);
+SELECT &#39;Expense Recorded Successfully&#39; AS Message;
+END;
+
+Recording Persons and Users (Doctors, Nurses, Operators, Admin)
+CREATE PROCEDURE AddPerson
+@PersonNo VARCHAR(50),
+@PersonType CHAR(1), -- &#39;D&#39; for Doctor, &#39;N&#39; for Nurse, &#39;O&#39; for Operator, &#39;A&#39; for
+Admin
+@FullName VARCHAR(100),
+@Qualification VARCHAR(100) = NULL,
+@Specializing VARCHAR(100) = NULL,
+@StreetName VARCHAR(100) = NULL,
+@Block VARCHAR(50) = NULL,
+@Township VARCHAR(50) = NULL,
+@City VARCHAR(50) = NULL
+AS
+BEGIN
+
+SET NOCOUNT ON;
+INSERT INTO Person (PersonNo, PersonType, FullName, Qualification,
+Specializing, Address_StreetName, Address_Block, Address_Township,
+Address_City, RegisteredSince)
+VALUES (@PersonNo, @PersonType, @FullName, @Qualification,
+@Specializing,
+@StreetName, @Block, @Township, @City, GETDATE());
+SELECT &#39;Person Added Successfully&#39; AS Message;
+END;
+Recording Patient CheckIn and Vital Information
+CREATE PROCEDURE RecordPatientCheckIn
+@PatientNo VARCHAR(50),
+@DoctorNo VARCHAR(50)
+AS
+BEGIN
+SET NOCOUNT ON;
+INSERT INTO PatientCheckInOut (DateTime, PatientNo, DoctorNo, CIN_TIME,
+isServed, isBilled)
+VALUES (GETDATE(), @PatientNo, @DoctorNo, GETDATE(), 0, 0);
+SELECT &#39;Patient Check-In Recorded Successfully&#39; AS Message;
+END;
+Recording Patient Vital Information
+CREATE PROCEDURE RecordPatientVital
+@PatientNo VARCHAR(50),
+@BP VARCHAR(20),
+@Oximeter INT,
+@Weight DECIMAL(5,2),
+@RespRate INT,
+@Height DECIMAL(5,2),
+@OperatorNo INT
+AS
+BEGIN
+SET NOCOUNT ON;
+INSERT INTO PatientVital (BP, Oximeter, Weight, RespRate, Height, DateTime,
+OperatorNo)
+VALUES (@BP, @Oximeter, @Weight, @RespRate, @Height, GETDATE(),
+@OperatorNo);
+-- Get the last inserted Vital ID
+DECLARE @VitalID INT = SCOPE_IDENTITY();
+-- Update Patient Check-In with Vital ID
+UPDATE PatientCheckInOut
+
+SET PatientVitalID = @VitalID
+WHERE PatientNo = @PatientNo AND CIN_TIME IS NOT NULL AND
+COUT_TIME IS NULL;
+SELECT &#39;Patient Vital Information Recorded Successfully&#39; AS Message;
+END;
+Recording Patient Checkout
+CREATE PROCEDURE RecordPatientCheckout
+@PatientNo VARCHAR(50)
+AS
+BEGIN
+SET NOCOUNT ON;
+-- Update check-in record with checkout time
+UPDATE PatientCheckInOut
+SET COUT_TIME = GETDATE(), isServed = 1
+WHERE PatientNo = @PatientNo AND COUT_TIME IS NULL;
+SELECT &#39;Patient Checkout Recorded Successfully&#39; AS Message;
+END;
+Recording Patient Billing
+CREATE PROCEDURE RecordPatientBilling
+@PatientNo VARCHAR(50),
+@TotalAmount DECIMAL(10,2),
+@OperatorNo INT
+AS
+BEGIN
+SET NOCOUNT ON;
+-- Insert IncomeBill record
+INSERT INTO IncomeBill (DateTime, PatientNo, TotalAmount, OperatorNo,
+IsPosted, IsVoided, PostedDate)
+VALUES (GETDATE(), @PatientNo, @TotalAmount, @OperatorNo, 0, 0, NULL);
+-- Mark patient as billed
+UPDATE PatientCheckInOut
+SET isBilled = 1
+WHERE PatientNo = @PatientNo AND isBilled = 0;
+SELECT &#39;Patient Billing Recorded Successfully&#39; AS Message;
+END;
+
+Print Patient Bill
+CREATE PROCEDURE PrintPatientBill
+@PatientNo VARCHAR(50)
+AS
+BEGIN
+SET NOCOUNT ON;
+-- Get patient and billing details
+SELECT
+P.PatientNo, P.FullName, P.DOB, P.Age, P.Sex, P.BloodGroup,
+IB.ID AS BillID, IB.DateTime AS BillDate, IB.TotalAmount,
+U.UserCode AS BilledBy
+FROM Patient P
+INNER JOIN IncomeBill IB ON P.PatientNo = IB.PatientNo
+INNER JOIN [User] U ON IB.OperatorNo = U.ID
+WHERE P.PatientNo = @PatientNo
+ORDER BY IB.DateTime DESC;
+SELECT &#39;Patient Bill Printed Successfully&#39; AS Message;
+END;
+Record Lab Transaction
+CREATE PROCEDURE RecordLabTransaction
+@PatientNo VARCHAR(50),
+@DoctorNo VARCHAR(50),
+@IncomeBillID INT,
+@IsCollected BIT
+AS
+BEGIN
+SET NOCOUNT ON;
+-- Insert Lab Record
+INSERT INTO PatientLabRecord (DateTime, DoctorNo, IncomeBillID, IsCollected)
+VALUES (GETDATE(), @DoctorNo, @IncomeBillID, @IsCollected);
+SELECT &#39;Lab Transaction Recorded Successfully&#39; AS Message;
+END;
+Print Lab Transaction
+CREATE PROCEDURE PrintLabTransaction
+@PatientNo VARCHAR(50)
+AS
+BEGIN
+SET NOCOUNT ON;
+-- Retrieve lab transaction details
+SELECT
+P.PatientNo, P.FullName, P.DOB, P.Age, P.Sex, P.BloodGroup,
+L.ID AS LabRecordID, L.DateTime AS LabDate, L.DoctorNo,
+
+IB.TotalAmount AS LabFee, L.IsCollected
+FROM Patient P
+INNER JOIN PatientLabRecord L ON P.ID = L.ID
+INNER JOIN IncomeBill IB ON L.IncomeBillID = IB.ID
+WHERE P.PatientNo = @PatientNo
+ORDER BY L.DateTime DESC;
+SELECT &#39;Lab Transaction Printed Successfully&#39; AS Message;
+END;
+
+Recording Lab Document in DB
+CREATE PROCEDURE StoreLabDocument
+@PatientID INT,
+@DocumentContent VARBINARY(MAX) -- Storing as binary (PDF, image, etc.)
+AS
+BEGIN
+SET NOCOUNT ON;
+-- Insert into PatientDocument table
+INSERT INTO PatientDocument (DocumentContent)
+VALUES (@DocumentContent);
+-- Get last inserted Document ID
+DECLARE @DocID INT = SCOPE_IDENTITY();
+-- Update Lab Record with Document ID
+UPDATE PatientLabRecord
+SET PatientDocumentID = @DocID
+WHERE ID = @PatientID AND PatientDocumentID IS NULL;
+SELECT &#39;Lab Document Stored Successfully&#39; AS Message;
+END;
+
+Checking Today’s Patients
+SELECT p.PatientNo, c.DateTime, c.isServed, c.isBilled
+FROM PatientCheckInOut c
+JOIN Patient p ON p.PatientNo = c.PatientNo
+WHERE CAST(c.DateTime AS DATE) = CAST(GETDATE() AS DATE);
+
+Checking Today&#39;s Doctors&#39; Income
+SELECT
+P.PersonNo AS DoctorID,
+P.FullName AS DoctorName,
+SUM(IB.TotalAmount) AS TotalIncome
+FROM IncomeBill IB
+JOIN Person P ON IB.OperatorNo = P.PersonNo
+WHERE P.PersonType = &#39;D&#39; -- &#39;D&#39; for Doctor
+AND CAST(IB.DateTime AS DATE) = CAST(GETDATE() AS DATE)
+GROUP BY P.PersonNo, P.FullName
+ORDER BY TotalIncome DESC;
